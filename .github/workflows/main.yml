@@ -24,7 +24,7 @@ jobs:
 
     - name: Deploy to Spot Instance
       run: |
-        rsync -avz -e "ssh -i ~/.ssh/id_rsa" --exclude='.git*' ./ ec2-user@${{ secrets.HOST_IP }}:/var/www/html
+        rsync -avz -e "ssh -i ~/.ssh/id_rsa" --exclude='.git*' ./ ${{ secrets.HOST_NAME }}@${{ secrets.HOST_IP }}:/var/www/html
         ssh -i ~/.ssh/id_rsa $ {{ secrets.HOST_NAME }}@${{ secrets.HOST_IP }} << 'EOF'
           sudo apt-get -y update
           sudo apt-get install -y apache2
