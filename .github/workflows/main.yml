@@ -1,25 +1,37 @@
-name: Deploy Website to AWS
+name: Deploy to EC2
 
+# Trigger deployment only on push to main branch
 on:
   push:
     branches:
-      - main # Trigger on push to the main branch
+      - main
 
 jobs:
   deploy:
+    name: Deploy to EC2 on master branch push
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-      
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan ${{ secrets.HOST_IP }} >> ~/.ssh/known_hosts
+      - name: Checkout the files
+        uses: actions/checkout@v3
 
-      - name: Deploy index.html
-        run: |
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ./index.html ${{ secrets.HOST_NAME }}@${{ secrets.HOST_IP }}:/var/www/html/index.html
+      - name: Deploy to spot instance
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}
+          REMOTE_USER: ${{ secrets.HOST_NAME }}
+
+      - name: Executing remote ssh commands using ssh key
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.HOST_NAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            sudo apt-get -y update
+            sudo apt-get install -y apache2
+            sudo systemctl start apache2
+            sudo systemctl enable apache2
+            cd home
+            sudo mv * /var/www/html
