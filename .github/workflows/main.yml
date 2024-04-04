@@ -1,4 +1,4 @@
-name: Deploy to AWS Spot Instances
+name: Manual SSH and Deploy
 
 on:
   push:
@@ -12,16 +12,23 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Deploy to Spot instance
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.HOST_IP }}
-        username: ${{ secrets.HOST_NAME }}
-        key: ${{ secrets.SSH_KEY }}
-        script: |
+    - name: Set up SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.HOST_IP }} >> ~/.ssh/known_hosts
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+
+    - name: Deploy to Spot Instance
+      run: |
+        rsync -avz -e "ssh -i ~/.ssh/id_rsa" --exclude='.git*' ./ ec2-user@${{ secrets.HOST_IP }}:/var/www/html
+        ssh -i ~/.ssh/id_rsa ${{ secret.HOST_NAME }}@${{ secrets.HOST_IP }} << 'EOF'
           sudo apt-get -y update
           sudo apt-get install -y apache2
           sudo systemctl start apache2
           sudo systemctl enable apache2
-          rm -rf /var/www/html/*
-          scp -r * ${{ secrets.HOST_NAME }}@${{ secrets.HOST_IP }}:/var/www/html
+        EOF
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
