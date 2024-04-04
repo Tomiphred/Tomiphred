@@ -1,6 +1,5 @@
-name: Deploy to EC2
+name: Deployment to EC2 Instance
 
-# Trigger deployment only on push to main branch
 on:
   push:
     branches:
@@ -8,30 +7,29 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to EC2 on master branch push
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout the files
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Deploy to spot instance
-        uses: easingthemes/ssh-deploy@main
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.HOST_DNS }}
-          REMOTE_USER: ${{ secrets.HOST_NAME }}
+    - name: Set up SSH key
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.HOST_DNS }} >> ~/.ssh/known_hosts
+      
 
-      - name: Executing remote ssh commands using ssh key
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST_DNS }}
-          username: ${{ secrets.HOST_NAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            sudo apt-get -y update
-            sudo apt-get install -y apache2
-            sudo systemctl start apache2
-            sudo systemctl enable apache2
-            cd home
-            sudo mv * /var/www/html
+    - name: Deploy to Spot Instance
+      run: |
+        rsync -avz -e "ssh -i ~/.ssh/id_rsa" --exclude='.git*' ./ ${{ secrets.HOST_NAME }}@${{ secrets.HOST_DNS }}:/var/www/html
+        ssh -i ~/.ssh/id_rsa $ {{ secrets.HOST_NAME }}@${{ secrets.HOST_DNS }} << 'EOF'
+          sudo apt-get -y update
+          sudo apt-get install -y apache2
+          sudo systemctl start apache2
+          sudo systemctl enable apache2
+        EOF
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
